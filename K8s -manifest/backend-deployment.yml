@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: backend
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"  
+    prometheus.io/port: "8080"  
+spec:
+  replicas: 3  
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: backend-container
+        image: alia153/final-project:backend.4
+        ports:
+        - containerPort: 5000  # Flask default port
+        envFrom:
+        - configMapRef:
+            name: backend-config
+        env:
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret  
+              key: MYSQL_ROOT_PASSWORD
+        volumeMounts:
+        - name: backend-storage
+          mountPath: /var/log/backend
+      volumes:
+      - name: backend-storage
+        persistentVolumeClaim:
+          claimName: backend-pvc
+  

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  labels:
+    app: frontend
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"  
+    prometheus.io/port: "8080"      
+spec:
+  replicas: 3  
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: frontend
+        image: alia153/final-project:frontend.4
+        ports:
+        - containerPort: 5001
+        env:  
+        - name: backend-connection
+          valueFrom:
+            configMapKeyRef:
+              name: frontend-config
+              key: BACKEND_URL

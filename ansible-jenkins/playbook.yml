@@ -1,0 +1,163 @@
+- name: Deploy Jenkins with Docker and kubectl on Kubernetes
+  hosts: localhost
+  tasks:
+    - name: Create ServiceAccount file
+      copy:
+        dest: "./service-account.yml"
+        content: |
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: jenkins-sa
+            namespace: jenkins
+
+    - name: Create Role file
+      copy:
+        dest: "./role.yml"
+        content: |
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: jenkins-role
+          rules:
+          - apiGroups: ["*"]
+            resources: ["*"]
+            verbs: ["*"]
+
+    - name: Create RoleBinding file
+      copy:
+        dest: "./role-binding.yml"
+        content: |
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: jenkins-rolebinding
+          subjects:
+          - kind: ServiceAccount
+            name: jenkins-sa
+            namespace: jenkins
+          roleRef:
+            kind: ClusterRole
+            name: jenkins-role
+            apiGroup: rbac.authorization.k8s.io     
+
+    - name: Create pv file
+      copy:
+        dest: "./pv.yml"
+        content: |
+          apiVersion: v1
+          kind: PersistentVolume
+          metadata:
+            name: jenkins-pv
+            namespace: jenkins
+          spec:
+            capacity:
+              storage: 1Gi
+            accessModes:
+              - ReadWriteOnce
+            persistentVolumeReclaimPolicy: Retain
+            hostPath:
+              path: /mnt/data/jenkins  
+
+    - name: Create pvc file
+      copy:
+        dest: "./pvc.yml"
+        content: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: jenkins-pvc
+            namespace: jenkins
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1G          
+
+    - name: Create Kubernetes deployment file
+      copy:
+        dest: "./jenkins-deployment.yml"
+        content: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: jenkins
+            namespace: jenkins
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: jenkins
+            template:
+              metadata:
+                labels:
+                  app: jenkins
+              spec:
+                serviceAccountName: jenkins-sa
+                containers:
+                - name: jenkins
+                  image: ibrahimshaaban/aaa:jenkins
+                  securityContext:
+                    privileged: true
+                  ports:
+                  - containerPort: 8080
+                  - containerPort: 50000
+                  volumeMounts:
+                  - name: docker-socket
+                    mountPath: /var/run/docker.sock
+                volumes:
+                - name: docker-socket
+                  hostPath:
+                    path: /var/run/docker.sock
+                    type: Socket
+                - name: jenkins-storage
+                  persistentVolumeClaim:
+                    claimName: jenkins-pvc   
+
+    - name: Create Kubernetes service file
+      copy:
+        dest: "./jenkins-service.yml"
+        content: |
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: jenkins
+            namespace: jenkins
+          spec:
+            type: NodePort
+            ports:
+            - port: 8080
+              targetPort: 8080
+              nodePort: 32000
+            selector:
+              app: jenkins
+
+    - name: Create Jenkins namespace
+      shell: kubectl create namespace jenkins || true
+    
+    - name: Create role
+      shell: kubectl apply -f ./role.yml
+
+    - name: Create rolebinding
+      shell: kubectl apply -f ./role-binding.yml
+
+    - name: Create service-account
+      shell: kubectl apply -f ./service-account.yml
+
+    - name: Create pv
+      shell: kubectl apply -f ./pv.yml
+
+    - name: Create pvc
+      shell: kubectl apply -f ./pvc.yml
+
+    - name: Deploy Jenkins using deployment file
+      shell: kubectl apply -f ./jenkins-deployment.yml
+
+    - name: Expose Jenkins service using service file
+      shell: kubectl apply -f ./jenkins-service.yml
+
+    - name: Wait for Jenkins Pod to be ready
+      shell: kubectl rollout status deployment/jenkins -n jenkins
+      retries: 10
+      delay: 15
