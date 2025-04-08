@@ -1,7 +1,4 @@
-![DevOps Best Practices for Business Strategy Success](https://github.com/user-attachments/assets/1ec9a455-e946-4ccc-ab4f-5e59c46b918e)
-
-
-#  **DevOpsSphere-finalProject**
+DevOpsSphere-FinalProject
  
 
 This project implements a robust three-tier application architecture deployed on a Kubernetes cluster. The setup consists of a frontend, backend, and database, each managed as separate services to ensure modularity, scalability, and resilience. The architecture also integrates modern DevOps practices such as CI/CD, secure secrets management, and comprehensive monitoring.
